@@ -4,7 +4,7 @@ Funciones de normalización de opcodes para mejorar la calidad del diff.
 """
 from genshi.core import START, END, TEXT
 from .utils import qname_localname, extract_text_from_events, collapse_ws, structure_signature
-from .config import INLINE_FORMATTING_TAGS
+from .config import INLINE_FORMATTING_TAGS, BLOCK_WRAPPER_TAGS
 
 
 def normalize_opcodes_for_delete_first(opcodes):
@@ -165,11 +165,18 @@ def should_force_visual_replace(old_events, new_events, config):
     if old_lname != new_lname:
         return True
 
-    # If the visible text is the same but inline formatting structure differs
-    # (e.g. <span>... -> <strong>... or <strong> removed), force a replace so
-    # we can render del->ins deterministically.
+    # If the visible text is the same but the *inline formatting* structure differs
+    # (e.g. <span>... -> <strong>... or <strong> removed), we sometimes need to
+    # force a replace so we can render del->ins deterministically.
+    #
+    # Important: do NOT escalate inner wrapper changes to a full replace of a
+    # block container like <p>/<h1-6>, otherwise unchanged trailing text inside
+    # the paragraph gets highlighted as deleted/inserted (EdenAI report case).
     if structure_signature(old_events, config) != structure_signature(new_events, config):
-        return True
+        if old_lname in INLINE_FORMATTING_TAGS or new_lname in INLINE_FORMATTING_TAGS:
+            return True
+        if old_lname in BLOCK_WRAPPER_TAGS or new_lname in BLOCK_WRAPPER_TAGS:
+            return False
 
     keys = list(getattr(config, 'track_attrs', ('style', 'class', 'src', 'href')))
     if 'id' not in keys:
@@ -178,5 +185,6 @@ def should_force_visual_replace(old_events, new_events, config):
         if old_attrs.get(k) != new_attrs.get(k):
             return True
     return False
+
 
 

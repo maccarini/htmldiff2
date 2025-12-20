@@ -87,6 +87,23 @@ def run_regressions():
     _assert_contains(out, '<del>')
     _assert_contains(out, '<img')
 
+    # EdenAI: inline wrapper tag change inside a paragraph should NOT mark the
+    # entire trailing sentence as deleted/inserted.
+    before = """<div class="report-content">
+            <p>
+                <span>CLINICAL HISTORY:</span> The patient reports chest pain and fatigue.
+            </p>
+        </div>"""
+    after = """<div class="report-content">
+            <p>
+                <strong>CLINICAL HISTORY:</strong> The patient reports chest pain and fatigue.
+            </p>
+        </div>"""
+    out = htmldiff2.render_html_diff(before, after)
+    assert "The patient reports chest pain and fatigue." in out
+    assert "<del>The patient reports chest pain and fatigue." not in out
+    assert "<ins>The patient reports chest pain and fatigue." not in out
+
 
 if __name__ == '__main__':
     run_regressions()
